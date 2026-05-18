@@ -9,7 +9,8 @@
   ],
   "functions": {
     "api/[...path].ts": {
-      "includeFiles": "scripts/**"
+      "includeFiles": "scripts/**",
+      "maxDuration": 60
     }
   }
 }

@@ -376,7 +376,10 @@ Rules:
       return;
     }
 
-    next(error);
+    console.error("Unhandled API error:", error);
+    res.status(500).json({
+      error: getGeminiErrorMessage(error) || "Serveri pati nje gabim te papritur. Kontrollo Vercel Runtime Logs per detaje.",
+    });
   });
 
   // Vite middleware for development
