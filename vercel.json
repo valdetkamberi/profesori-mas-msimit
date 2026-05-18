@@ -3,16 +3,12 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/[...path].ts": {
       "includeFiles": "scripts/**"
     }
   }
