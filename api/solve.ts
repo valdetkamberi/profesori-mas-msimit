@@ -155,7 +155,7 @@ async function solveWithWolfram(problemText: string): Promise<SolveResult | null
 
   const url = new URL("https://api.wolframalpha.com/v2/query");
   url.searchParams.set("appid", appId);
-  url.searchParams.set("input", problemText);
+  url.searchParams.set("input", getWolframInput(problemText));
   url.searchParams.set("output", "json");
   url.searchParams.set("format", "plaintext");
 
@@ -163,11 +163,27 @@ async function solveWithWolfram(problemText: string): Promise<SolveResult | null
   if (!response.ok) return null;
   const data = await response.json();
   const pods = data?.queryresult?.pods || [];
-  const usefulPod = pods.find((pod: any) =>
-    /result|solution|integral|derivative|limit|exact result|decimal approximation/i.test(String(pod.title))
-  );
+  const usefulPod = pods.find((pod: any) => /result|solution|integral|derivative|limit|exact result|decimal approximation/i.test(String(pod.title)))
+    || pods.find((pod: any) => pod?.subpods?.[0]?.plaintext);
   const plaintext = usefulPod?.subpods?.[0]?.plaintext;
   return plaintext ? wolframPlaintextToResult(problemText, plaintext) : null;
+}
+
+function getWolframInput(problemText: string) {
+  const normalized = problemText.trim();
+  if (/^\\int|^∫|integral/i.test(normalized)) {
+    return `integrate ${normalized}`;
+  }
+
+  if (/^\\frac\{d\}\{d|derivative|derivati|diff/i.test(normalized)) {
+    return `differentiate ${normalized}`;
+  }
+
+  if (/^\\lim|limit|limiti/i.test(normalized)) {
+    return `limit ${normalized}`;
+  }
+
+  return normalized;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
