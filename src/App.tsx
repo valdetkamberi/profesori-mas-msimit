@@ -60,8 +60,8 @@ const NUM_KEYS = [
 ];
 
 const compressImageForUpload = (file: File): Promise<string> => {
-  const maxSize = 1600;
-  const quality = 0.82;
+  const maxSize = 900;
+  const quality = 0.68;
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -83,13 +83,25 @@ const compressImageForUpload = (file: File): Promise<string> => {
         }
 
         context.drawImage(image, 0, 0, width, height);
-        const format = file.type === 'image/png' || file.size < 600_000 ? 'image/png' : 'image/jpeg';
-        resolve(canvas.toDataURL(format, quality));
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       image.src = String(reader.result || '');
     };
     reader.readAsDataURL(file);
   });
+};
+
+const readApiJson = async (response: Response) => {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error("Serveri ktheu pergjigje bosh. Provo nje foto me te vogel ose bej redeploy pas konfigurimit te API key.");
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(text.slice(0, 160) || "Serveri ktheu nje pergjigje qe nuk eshte JSON.");
+  }
 };
 
 export default function App() {
@@ -178,7 +190,7 @@ export default function App() {
         body: JSON.stringify({ problem })
       });
       
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.error || 'Failed to solve');
       
       setSteps(data.steps || []);
@@ -203,13 +215,17 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: base64 })
         });
-        const data = await response.json();
+        const data = await readApiJson(response);
         if (!response.ok) throw new Error(data.error || "Nuk mund të lexohej imazhi.");
         setProblem(data.equation);
         setView('input');
       } catch (err: any) {
         setError(err.message || "Nuk mund të lexonim imazhin. Provoni manualisht.");
         setView('input');
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
     uploadCompressedImage();
@@ -244,7 +260,7 @@ export default function App() {
           chatHistory: chatHistory[step.id] || []
         })
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       
       setChatHistory(prev => ({
         ...prev,

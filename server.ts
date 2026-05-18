@@ -223,7 +223,7 @@ async function solveWithWolfram(problemText: string): Promise<SolveResult | null
 export async function createApp(options: { serveFrontend?: boolean; useVite?: boolean } = {}) {
   const app = express();
 
-  app.use(express.json({ limit: "20mb" }));
+  app.use(express.json({ limit: "4mb" }));
 
   // API: Solve Problem
   app.post("/api/solve", async (req, res) => {
@@ -361,6 +361,22 @@ Rules:
         error: getGeminiErrorMessage(error) || "Nuk mund të lexohej imazhi. Provo një foto më të qartë ose shkruaje manualisht.",
       });
     }
+  });
+
+  app.use((error: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error.type === "entity.too.large") {
+      res.status(413).json({
+        error: "Fotoja eshte shume e madhe per serverin. Provo ta presesh ose te ngarkosh nje foto me te vogel.",
+      });
+      return;
+    }
+
+    next(error);
   });
 
   // Vite middleware for development
