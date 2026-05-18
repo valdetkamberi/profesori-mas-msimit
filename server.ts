@@ -220,9 +220,8 @@ async function solveWithWolfram(problemText: string): Promise<SolveResult | null
   }
 }
 
-async function startServer() {
+export async function createApp(options: { serveFrontend?: boolean; useVite?: boolean } = {}) {
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json({ limit: "20mb" }));
 
@@ -365,13 +364,13 @@ Rules:
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (options.useVite) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (options.serveFrontend) {
     // Production static files
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
@@ -380,9 +379,21 @@ Rules:
     });
   }
 
+  return app;
+}
+
+async function startServer() {
+  const PORT = 3000;
+  const app = await createApp({
+    useVite: process.env.NODE_ENV !== "production",
+    serveFrontend: process.env.NODE_ENV === "production",
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+if (process.env.VERCEL !== "1") {
+  startServer();
+}
