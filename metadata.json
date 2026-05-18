@@ -1,0 +1,8 @@
+{
+  "name": "Profesori mas msimit",
+  "description": "An AI Math Tutor that solves integration problems line-by-line using beautiful LaTeX, outputting strict step-by-step explanations in Albanian.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

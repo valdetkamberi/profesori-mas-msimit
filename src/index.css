@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background-color: var(--color-gray-950);
+  color: var(--color-gray-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.1rem;
+  margin: 0 !important;
+}
+
+.katex-display-block p {
+  margin: 0;
+}
+
+/* Hide scrollbars for cleaner equations */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* MathLive Overrides for Dark Theme */
+math-field {
+  --selection-background-color: rgba(255, 80, 90, 0.3);
+  --keyboard-toolbar-text: white;
+  --placeholder-color: #555;
+  --smart-fence-color: #FF505A;
+  --contains-highlight-background-color: transparent;
+}
+math-field::part(placeholder) {
+  opacity: 0.6;
+}
