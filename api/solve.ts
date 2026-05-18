@@ -124,15 +124,29 @@ function wolframPlaintextToResult(problemText: string, plaintext: string): Solve
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  const finalAnswer = lines[lines.length - 1] || plaintext.trim();
+  const finalAnswer = normalizeWolframMathText(lines[lines.length - 1] || plaintext.trim());
 
   return {
     steps: [
       { id: "step-1", equation: problemText },
-      { id: "step-2", equation: `\\text{WolframAlpha: } ${finalAnswer.replace(/_/g, "\\_")}` },
+      { id: "step-2", equation: finalAnswer },
     ],
-    finalAnswer: finalAnswer.replace(/_/g, "\\_"),
+    finalAnswer,
   };
+}
+
+function normalizeWolframMathText(value: string) {
+  return value
+    .replace(/\bintegral\b\s*/gi, "\\int ")
+    .replace(/\bconstant\b/gi, "C")
+    .replace(/\bcsc\b/gi, "\\csc")
+    .replace(/\bsec\b/gi, "\\sec")
+    .replace(/\bcos\b/gi, "\\cos")
+    .replace(/\bsin\b/gi, "\\sin")
+    .replace(/\btan\b/gi, "\\tan")
+    .replace(/\^(\d+)/g, "^{$1}")
+    .replace(/\*/g, "")
+    .replace(/_/g, "\\_");
 }
 
 async function solveWithWolfram(problemText: string): Promise<SolveResult | null> {
