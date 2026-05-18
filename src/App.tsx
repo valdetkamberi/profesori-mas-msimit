@@ -59,6 +59,39 @@ const NUM_KEYS = [
   { key: '+', display: '+', type: 'text' },
 ];
 
+const compressImageForUpload = (file: File): Promise<string> => {
+  const maxSize = 1600;
+  const quality = 0.82;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Nuk mund të lexohej imazhi."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Nuk mund të përpunohej imazhi."));
+      image.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error("Nuk mund të kompresohej imazhi."));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+        const format = file.type === 'image/png' || file.size < 600_000 ? 'image/png' : 'image/jpeg';
+        resolve(canvas.toDataURL(format, quality));
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function App() {
   const [problem, setProblem] = useState('');
   const [view, setView] = useState<'input' | 'solving' | 'solution'>('input');
@@ -161,11 +194,10 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
+    const uploadCompressedImage = async () => {
       setView('solving');
       try {
+        const base64 = await compressImageForUpload(file);
         const response = await fetch('/api/extract-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,7 +212,7 @@ export default function App() {
         setView('input');
       }
     };
-    reader.readAsDataURL(file);
+    uploadCompressedImage();
   };
 
   const handleExplain = async (step: Step) => {

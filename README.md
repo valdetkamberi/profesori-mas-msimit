@@ -11,7 +11,7 @@ Profesori mas msimit is a React and Express math calculator. The main solver run
 - Work with simple matrix operations such as determinant and inverse.
 - Calculate basic statistics such as mean, median, mode, and standard deviation.
 - Ask follow-up questions for a solution step, optionally with Gemini.
-- Upload an image and extract the math expression, optionally with Gemini.
+- Upload a compressed image and extract the math expression, optionally with Gemini.
 
 ## Example Inputs
 
@@ -62,6 +62,8 @@ std(2,4,6)
 
    ```env
    GEMINI_API_KEY="your_gemini_api_key_here"
+   GEMINI_API_KEY_FALLBACK="your_fallback_gemini_api_key_here"
+   GEMINI_API_KEY_FALLBACK_2="your_second_fallback_gemini_api_key_here"
    WOLFRAM_APP_ID="your_wolfram_app_id_here"
    PYTHON_BIN=".venv/Scripts/python.exe"
    ```

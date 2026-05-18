@@ -24,11 +24,23 @@ function getGeminiErrorMessage(error: any) {
     return "Gemini API falas nuk është i disponueshëm për këtë projekt/vend. Aktivizo billing në Google AI Studio ose përdor një API key tjetër me billing aktiv.";
   }
 
+  if (error?.status === 400 || message.includes("API key not valid") || message.includes("INVALID_ARGUMENT")) {
+    return "Gemini API key nuk u pranua ose kerkesa nuk eshte valide. Kontrollo API key dhe provo perseri.";
+  }
+
+  if (message.includes("PERMISSION_DENIED")) {
+    return "Gemini API nuk ka leje per kete key. Kontrollo qe key te jete aktiv ne Google AI Studio.";
+  }
+
   return null;
 }
 
 function getGeminiApiKeys() {
-  return [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_FALLBACK].filter(Boolean) as string[];
+  return [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_FALLBACK,
+    process.env.GEMINI_API_KEY_FALLBACK_2,
+  ].filter(Boolean) as string[];
 }
 
 async function generateGeminiContent(contents: any) {
@@ -54,6 +66,13 @@ async function generateGeminiContent(contents: any) {
   }
 
   throw lastError;
+}
+
+function sendGeminiError(res: express.Response, error: any, fallbackMessage: string) {
+  const message = getGeminiErrorMessage(error) || String(error?.message || fallbackMessage);
+  res.status(error?.status === 429 ? 429 : error?.status === 503 ? 503 : 500).json({
+    error: message || fallbackMessage,
+  });
 }
 
 type SolveResult = {
