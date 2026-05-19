@@ -27,6 +27,39 @@ function getGeminiErrorMessage(error: any) {
   return null;
 }
 
+function getGeminiApiKeys() {
+  return [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_FALLBACK,
+    process.env.GEMINI_API_KEY_FALLBACK_2,
+  ].filter(Boolean) as string[];
+}
+
+async function generateGeminiContent(contents: any) {
+  const apiKeys = getGeminiApiKeys();
+  if (apiKeys.length === 0) {
+    const error = new Error("Mungon GEMINI_API_KEY ne Vercel Environment Variables.");
+    (error as any).status = 503;
+    throw error;
+  }
+
+  let lastError: any = null;
+  for (const apiKey of apiKeys) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      return await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+        contents,
+      });
+    } catch (error) {
+      lastError = error;
+      console.warn("Gemini fallback key skipped:", getGeminiErrorMessage(error) || error);
+    }
+  }
+
+  throw lastError;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -34,11 +67,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      res.status(503).json({ error: "Mungon GEMINI_API_KEY ne Vercel Environment Variables." });
-      return;
-    }
-
     const { problem, stepEquation, question, chatHistory } = req.body || {};
     if (!problem || !stepEquation) {
       res.status(400).json({ error: "Mungon problemi ose hapi per shpjegim." });
@@ -67,11 +95,7 @@ Rules:
 5. GUARDRAIL: If the student asks something COMPLETELY unrelated to mathematics, reply STRICTLY with: "Une mund te te ndihmoj vetem me paqartesite rreth ketij hapi matematikash."
 `;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
-      contents: prompt,
-    });
+    const response = await generateGeminiContent(prompt);
 
     const explanation = response.text || "";
     if (!explanation.trim()) {

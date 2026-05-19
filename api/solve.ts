@@ -33,6 +33,14 @@ function normalizeMathInput(value: string) {
     [/≤/g, "\\le"],
     [/≥/g, "\\ge"],
     [/≠/g, "\\ne"],
+    [/∫/g, "\\int "],
+    [/√/g, "\\sqrt"],
+    [/π/g, "\\pi"],
+    [/×/g, "\\times"],
+    [/÷/g, "\\div"],
+    [/≤/g, "\\le"],
+    [/≥/g, "\\ge"],
+    [/≠/g, "\\ne"],
     [/\bintegral\b/gi, "\\int"],
     [/\bpi\b/gi, "\\pi"],
     [/\btimes\b|\bmultiplied by\b/gi, "\\times"],
@@ -56,6 +64,8 @@ function normalizeMathInput(value: string) {
   return normalized
     .replace(/\b(?:sqroot|sqrt|square root)\s*\(([^()]+)\)/gi, "\\sqrt{$1}")
     .replace(/\b(?:sqroot|sqrt)\s*\{([^{}]+)\}/gi, "\\sqrt{$1}")
+    .replace(/\b(?:sqroot|sqrt|square root)\s+([a-zA-Z0-9]+(?:\^\{?[-+]?\d+\}?)?)/gi, "\\sqrt{$1}")
+    .replace(/\b(?:sqroot|sqrt)([a-zA-Z0-9]+(?:\^\{?[-+]?\d+\}?)?)/gi, "\\sqrt{$1}")
     .replace(/\b(?:sqroot|sqrt|square root)\b/gi, "\\sqrt")
     .replace(/\\\\(int|sqrt|pi|times|div|le|ge|ne|theta|alpha|beta|gamma|delta|sin|cos|tan|ln|log)\b/g, "\\$1")
     .replace(/\s+/g, " ")

@@ -27,6 +27,39 @@ function getGeminiErrorMessage(error: any) {
   return null;
 }
 
+function getGeminiApiKeys() {
+  return [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_FALLBACK,
+    process.env.GEMINI_API_KEY_FALLBACK_2,
+  ].filter(Boolean) as string[];
+}
+
+async function generateGeminiContent(contents: any) {
+  const apiKeys = getGeminiApiKeys();
+  if (apiKeys.length === 0) {
+    const error = new Error("Mungon GEMINI_API_KEY ne Vercel Environment Variables.");
+    (error as any).status = 503;
+    throw error;
+  }
+
+  let lastError: any = null;
+  for (const apiKey of apiKeys) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      return await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+        contents,
+      });
+    } catch (error) {
+      lastError = error;
+      console.warn("Gemini fallback key skipped:", getGeminiErrorMessage(error) || error);
+    }
+  }
+
+  throw lastError;
+}
+
 function normalizeMathInput(value: string) {
   let normalized = value
     .replace(/```(?:latex)?/gi, '')
@@ -35,6 +68,14 @@ function normalizeMathInput(value: string) {
     .trim();
 
   const replacements: Array<[RegExp, string]> = [
+    [/∫/g, '\\int '],
+    [/√/g, '\\sqrt'],
+    [/π/g, '\\pi'],
+    [/×/g, '\\times'],
+    [/÷/g, '\\div'],
+    [/≤/g, '\\le'],
+    [/≥/g, '\\ge'],
+    [/≠/g, '\\ne'],
     [/∫/g, '\\int '],
     [/√/g, '\\sqrt'],
     [/π/g, '\\pi'],
@@ -66,6 +107,8 @@ function normalizeMathInput(value: string) {
   return normalized
     .replace(/\b(?:sqroot|sqrt|square root)\s*\(([^()]+)\)/gi, '\\sqrt{$1}')
     .replace(/\b(?:sqroot|sqrt)\s*\{([^{}]+)\}/gi, '\\sqrt{$1}')
+    .replace(/\b(?:sqroot|sqrt|square root)\s+([a-zA-Z0-9]+(?:\^\{?[-+]?\d+\}?)?)/gi, '\\sqrt{$1}')
+    .replace(/\b(?:sqroot|sqrt)([a-zA-Z0-9]+(?:\^\{?[-+]?\d+\}?)?)/gi, '\\sqrt{$1}')
     .replace(/\b(?:sqroot|sqrt|square root)\b/gi, '\\sqrt')
     .replace(/\\\\(int|sqrt|pi|times|div|le|ge|ne|theta|alpha|beta|gamma|delta|sin|cos|tan|ln|log)\b/g, '\\$1')
     .replace(/\s+/g, ' ')
@@ -79,11 +122,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      res.status(503).json({ error: "Mungon GEMINI_API_KEY ne Vercel Environment Variables." });
-      return;
-    }
-
     const imageBase64 = req.body?.imageBase64;
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       res.status(400).json({ error: "No image provided" });
@@ -97,14 +135,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
-      contents: [
+    const response = await generateGeminiContent([
         { text: "Extract the mathematical equation from this image. Output ONLY the raw standard LaTeX string representing the formula. Use LaTeX commands for symbols, for example \\sqrt{...}, \\int, \\frac{...}{...}, \\pi, \\sin, \\cos. Do not use words such as sqroot, sqrt, integral, pi, times, or divide. Do not include markdown formatting or backticks, just the math." },
         { inlineData: { mimeType, data: base64Data } },
-      ],
-    });
+      ]);
 
     const equation = normalizeMathInput(response.text || '');
     if (!equation) {
