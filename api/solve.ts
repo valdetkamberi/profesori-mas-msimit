@@ -214,21 +214,91 @@ async function solveWithWolfram(problemText: string): Promise<SolveResult | null
   return plaintext ? wolframPlaintextToResult(problemText, plaintext) : null;
 }
 
+function replaceLatexFractions(value: string) {
+  let index = value.indexOf("\\frac");
+  if (index === -1) return value;
+
+  const readGroup = (source: string, start: number) => {
+    if (source[start] !== "{") return null;
+    let depth = 0;
+    for (let i = start; i < source.length; i += 1) {
+      if (source[i] === "{") depth += 1;
+      if (source[i] === "}") depth -= 1;
+      if (depth === 0) {
+        return {
+          value: source.slice(start + 1, i),
+          end: i + 1,
+        };
+      }
+    }
+    return null;
+  };
+
+  let result = "";
+  let cursor = 0;
+
+  while (index !== -1) {
+    const numerator = readGroup(value, index + 5);
+    const denominator = numerator ? readGroup(value, numerator.end) : null;
+    if (!numerator || !denominator) {
+      result += value.slice(cursor, index + 5);
+      cursor = index + 5;
+      index = value.indexOf("\\frac", cursor);
+      continue;
+    }
+
+    result += value.slice(cursor, index);
+    result += `((${replaceLatexFractions(numerator.value)})/(${replaceLatexFractions(denominator.value)}))`;
+    cursor = denominator.end;
+    index = value.indexOf("\\frac", cursor);
+  }
+
+  return result + value.slice(cursor);
+}
+
+function latexToWolframText(value: string) {
+  return replaceLatexFractions(value)
+    .replace(/\\left|\\right/g, "")
+    .replace(/\\,/g, " ")
+    .replace(/\\cdot|\\times/g, "*")
+    .replace(/\\div/g, "/")
+    .replace(/\\pi/g, "pi")
+    .replace(/\\sqrt\{([^{}]+)\}/g, "sqrt($1)")
+    .replace(/\\(sin|cos|tan|sec|csc|cot|ln|log)\b/g, "$1")
+    .replace(/\^\{([^{}]+)\}/g, "^($1)")
+    .replace(/([a-zA-Z]+)\^\(([^()]+)\)\s*\(([^()]+)\)/g, "$1($3)^($2)")
+    .replace(/([a-zA-Z]+)\^\(([^()]+)\)\s+([a-zA-Z0-9]+)/g, "$1($3)^($2)")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildWolframIntegralInput(problemText: string) {
+  const normalized = problemText
+    .replace(/^\\int\s*/i, "")
+    .replace(/^∫\s*/i, "")
+    .trim();
+  const variableMatch = normalized.match(/d\s*([a-zA-Z])\s*$/);
+  const variable = variableMatch?.[1] || "x";
+  const integrand = normalized.replace(/\\?,?\s*d\s*[a-zA-Z]\s*$/i, "").trim();
+
+  return `integrate ${latexToWolframText(integrand || normalized)} with respect to ${variable}`;
+}
+
 function getWolframInput(problemText: string) {
   const normalized = problemText.trim();
   if (/^\\int|^∫|integral/i.test(normalized)) {
-    return `integrate ${normalized}`;
+    return buildWolframIntegralInput(normalized.replace(/^integral\s*/i, "\\int "));
   }
 
   if (/^\\frac\{d\}\{d|derivative|derivati|diff/i.test(normalized)) {
-    return `differentiate ${normalized}`;
+    return `differentiate ${latexToWolframText(normalized)}`;
   }
 
   if (/^\\lim|limit|limiti/i.test(normalized)) {
-    return `limit ${normalized}`;
+    return `limit ${latexToWolframText(normalized)}`;
   }
 
-  return normalized;
+  return latexToWolframText(normalized);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
