@@ -59,6 +59,51 @@ const NUM_KEYS = [
   { key: '+', display: '+', type: 'text' },
 ];
 
+const normalizeMathInput = (value: string) => {
+  let normalized = value
+    .replace(/```(?:latex)?/gi, '')
+    .replace(/```/g, '')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+
+  const replacements: Array<[RegExp, string]> = [
+    [/∫/g, '\\int '],
+    [/√/g, '\\sqrt'],
+    [/π/g, '\\pi'],
+    [/×/g, '\\times'],
+    [/÷/g, '\\div'],
+    [/≤/g, '\\le'],
+    [/≥/g, '\\ge'],
+    [/≠/g, '\\ne'],
+    [/\bintegral\b/gi, '\\int'],
+    [/\bpi\b/gi, '\\pi'],
+    [/\btimes\b|\bmultiplied by\b/gi, '\\times'],
+    [/\bdivided by\b|\bdivide\b/gi, '\\div'],
+    [/\btheta\b/gi, '\\theta'],
+    [/\balpha\b/gi, '\\alpha'],
+    [/\bbeta\b/gi, '\\beta'],
+    [/\bgamma\b/gi, '\\gamma'],
+    [/\bdelta\b/gi, '\\delta'],
+    [/\bsin\b/gi, '\\sin'],
+    [/\bcos\b/gi, '\\cos'],
+    [/\btan\b/gi, '\\tan'],
+    [/\bln\b/gi, '\\ln'],
+    [/\blog\b/gi, '\\log'],
+  ];
+
+  replacements.forEach(([pattern, replacement]) => {
+    normalized = normalized.replace(pattern, replacement);
+  });
+
+  normalized = normalized
+    .replace(/\b(?:sqroot|sqrt|square root)\s*\(([^()]+)\)/gi, '\\sqrt{$1}')
+    .replace(/\b(?:sqroot|sqrt)\s*\{([^{}]+)\}/gi, '\\sqrt{$1}')
+    .replace(/\b(?:sqroot|sqrt|square root)\b/gi, '\\sqrt')
+    .replace(/\\\\(int|sqrt|pi|times|div|le|ge|ne|theta|alpha|beta|gamma|delta|sin|cos|tan|ln|log)\b/g, '\\$1');
+
+  return normalized.replace(/\s+/g, ' ').trim();
+};
+
 const compressImageForUpload = (file: File): Promise<string> => {
   const maxSize = 900;
   const quality = 0.68;
@@ -130,6 +175,12 @@ export default function App() {
     }
   }, [view]);
 
+  useEffect(() => {
+    if (view === 'input' && mfRef.current && mfRef.current.value !== problem) {
+      mfRef.current.setValue(problem, { silenceNotifications: true });
+    }
+  }, [problem, view]);
+
   // Scroll to bottom of chat when new message is added
   useEffect(() => {
     if (activeStep && messagesEndRef.current) {
@@ -139,6 +190,10 @@ export default function App() {
 
   const handleKeyClick = (keyDef: any) => {
     if (!mfRef.current) return;
+
+    const syncProblemFromMathfield = () => {
+      setProblem(mfRef.current.value || '');
+    };
     
     if (keyDef.type === 'solve') {
       handleSolve();
@@ -152,7 +207,8 @@ export default function App() {
           setProblem('');
           break;
         case 'backspace':
-          mfRef.current.executeCommand('performBackspace');
+          mfRef.current.executeCommand('deleteBackward');
+          syncProblemFromMathfield();
           break;
       }
       mfRef.current.focus();
@@ -175,11 +231,14 @@ export default function App() {
     } else if (keyDef.type === 'text') {
       mfRef.current.insert(keyDef.key);
     }
+    syncProblemFromMathfield();
     mfRef.current.focus();
   };
 
   const handleSolve = async () => {
-    if (!problem.trim()) return;
+    const normalizedProblem = normalizeMathInput(problem);
+    if (!normalizedProblem.trim()) return;
+    if (normalizedProblem !== problem) setProblem(normalizedProblem);
     setView('solving');
     setError('');
     
@@ -187,7 +246,7 @@ export default function App() {
       const response = await fetch('/api/solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem })
+        body: JSON.stringify({ problem: normalizedProblem })
       });
       
       const data = await readApiJson(response);
@@ -217,7 +276,7 @@ export default function App() {
         });
         const data = await readApiJson(response);
         if (!response.ok) throw new Error(data.error || "Nuk mund të lexohej imazhi.");
-        setProblem(data.equation);
+        setProblem(normalizeMathInput(data.equation || ''));
         setView('input');
       } catch (err: any) {
         setError(err.message || "Nuk mund të lexonim imazhin. Provoni manualisht.");

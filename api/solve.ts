@@ -17,6 +17,51 @@ function normalizeLatex(value: string) {
     .replace(/\\,/g, "");
 }
 
+function normalizeMathInput(value: string) {
+  let normalized = value
+    .replace(/```(?:latex)?/gi, "")
+    .replace(/```/g, "")
+    .replace(/\r?\n/g, " ")
+    .trim();
+
+  const replacements: Array<[RegExp, string]> = [
+    [/∫/g, "\\int "],
+    [/√/g, "\\sqrt"],
+    [/π/g, "\\pi"],
+    [/×/g, "\\times"],
+    [/÷/g, "\\div"],
+    [/≤/g, "\\le"],
+    [/≥/g, "\\ge"],
+    [/≠/g, "\\ne"],
+    [/\bintegral\b/gi, "\\int"],
+    [/\bpi\b/gi, "\\pi"],
+    [/\btimes\b|\bmultiplied by\b/gi, "\\times"],
+    [/\bdivided by\b|\bdivide\b/gi, "\\div"],
+    [/\btheta\b/gi, "\\theta"],
+    [/\balpha\b/gi, "\\alpha"],
+    [/\bbeta\b/gi, "\\beta"],
+    [/\bgamma\b/gi, "\\gamma"],
+    [/\bdelta\b/gi, "\\delta"],
+    [/\bsin\b/gi, "\\sin"],
+    [/\bcos\b/gi, "\\cos"],
+    [/\btan\b/gi, "\\tan"],
+    [/\bln\b/gi, "\\ln"],
+    [/\blog\b/gi, "\\log"],
+  ];
+
+  replacements.forEach(([pattern, replacement]) => {
+    normalized = normalized.replace(pattern, replacement);
+  });
+
+  return normalized
+    .replace(/\b(?:sqroot|sqrt|square root)\s*\(([^()]+)\)/gi, "\\sqrt{$1}")
+    .replace(/\b(?:sqroot|sqrt)\s*\{([^{}]+)\}/gi, "\\sqrt{$1}")
+    .replace(/\b(?:sqroot|sqrt|square root)\b/gi, "\\sqrt")
+    .replace(/\\\\(int|sqrt|pi|times|div|le|ge|ne|theta|alpha|beta|gamma|delta|sin|cos|tan|ln|log)\b/g, "\\$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function formatCoefficient(value: number) {
   if (value === 1) return "";
   if (value === -1) return "-";
@@ -193,11 +238,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const problem = req.body?.problem;
-    if (!problem || typeof problem !== 'string') {
+    const rawProblem = req.body?.problem;
+    if (!rawProblem || typeof rawProblem !== 'string') {
       res.status(400).json({ error: "No problem provided" });
       return;
     }
+    const problem = normalizeMathInput(rawProblem);
 
     const localResult = solveLocally(problem);
     if (localResult) {
